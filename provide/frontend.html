@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="[[.Path]] ([[.Hash]])" />
+    <title>clash 订阅链接转 sing-box</title>
+    <meta name="keywords" content="订阅转换,sing-box订阅,clash订阅,clash订阅转singbox,singbox订阅,sing-box转换,singbox转换">
+    <meta name="description" content="将 Clash.Meta 格式的订阅链接转换为 sing-box 格式的订阅，用于 SFA">
+    <link rel="stylesheet" href="static/pico.min.css"
+        integrity="sha512-UXfikgakSZBii5lkvmDCRO+IYWQhTtwMOJ+3EmGEA+oA82kvbSskgw3OI16Jx1kINgF8aqOkYE+c9h4m6muONg==" />
+    <script>window.version = "[[.Hash]]"</script>
+    <script type="module" src="static/main.mjs?[[.Hash]]"></script>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: 'unsafe-inline' 'unsafe-eval'" />
+    <style type="text/css">
+        header {
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <header>
+            <nav class="container-fluid">
+                <ul>
+                    <li><strong>clash 订阅链接转 sing-box</strong></li>
+                </ul>
+                <ul>
+                    <li><a href="https://github.com/xmdhs/clash2sfa">Github</a></li>
+                </ul>
+            </nav>
+        </header>
+        <main class="container">
+            <p>将 clash 格式的订阅链接转换为 sing-box 的工具，转换后的链接可用于 <a href="https://sing-box.sagernet.org/clients/">SFA</a>。</p>
+            <p>在此页面粘贴由本工具生成的订阅链接（仅参数保存在链接内可用），可解析到下面的选项中</p>
+            <input placeholder="订阅链接，多个链接使用 | 分割" v-model.trim="sub"  />
+            <div class="grid">
+                <input placeholder="url test 中包含的节点名（可用正则）" v-model="include" />
+                <input placeholder="url test 中排除的节点名（可用正则）" v-model="exclude" />
+            </div>
+            <br />
+            <details>
+                <summary>配置文件模板</summary>
+                <hr />
+                <span>可通过设置 urltest / selector 的 outbounds，来自定义生成配置文件后其中包含的节点。</span>
+                <span><a href="/static/config.json-group.jsonc" target="_blank">复杂分流模板示例</a></span>
+                <label>
+                    <input type="checkbox" role="switch" v-model="disableUrlTest">
+                    禁用默认生成的 urltest 和 selector
+                </label>
+                <label for="addTag">
+                    <input type="checkbox" id="addTag" role="switch" v-model="addTag">
+                    生成的节点中添加订阅地址的域名，用以区分不同订阅的节点
+                </label>
+                <div style="display: flex;align-items:baseline;column-gap:3em">
+                    <span style="width: max-content;">是否在出站中添加 block 和 dns</span>
+                    <select style="width: min-content;" v-model="outFields">
+                        <option selected value="">根据 UA 判断是否添加</option>
+                        <option value="1">是</option>
+                        <option value="0">否</option>
+                    </select>
+                </div>
+                <div style="display: flex;align-items:baseline;column-gap:3em">
+                    <span style="width: max-content;">配置文件选项</span>
+                    <select style="width: min-content;" v-model="configType" @change="onChange">
+                        <option selected value="">根据 UA 自动选择</option>
+                        <option value="0">1.10-</option>
+                        <option value="1">1.11+</option>
+                        <option value="4">1.12+</option>
+                        <option value="2">自定义模板</option>
+                        <option value="3">自定义模板直链</option>
+                    </select>
+                </div>
+                <textarea style="resize: none;height: 25em;" v-model="config" v-show="configType === '2'"></textarea>
+                <input v-model="configurl" v-show="configType === '3'" />
+            </details>
+            <br />
+            <progress v-show="inFetch"></progress>
+            <input type="text" ref="inputRef" v-if="newsub" placeholder="" v-model="newsub">
+            <button v-show="!inFetch" @click="click" style="width: 100%;">获取 sing-box 格式订阅链接</button>
+        </main>
+    </div>
+</body>
+
+</html>

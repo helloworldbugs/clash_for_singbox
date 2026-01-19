@@ -1,0 +1,239 @@
+{
+    "$schema": "https://gist.githubusercontent.com/artiga033/fea992d95ad44dc8d024b229223b1002/raw/sing-box.schema.json",
+    "log": {},
+    "dns": {
+        "servers": [
+            {
+                "tag": "remote",
+                "type": "https",
+                "server": "8.8.8.8",
+                "detour": "select"
+            },
+            {
+                "tag": "local",
+                "type": "https",
+                "server": "223.5.5.5"
+            },
+            {
+                "type": "fakeip",
+                "tag": "fakeip",
+                "inet4_range": "198.18.0.0/15",
+                "inet6_range": "fc00::/18"
+            }
+        ],
+        "rules": [
+            {
+                "rule_set": [
+                    "AdGuardSDNSFilter",
+                    "chrome-doh"
+                ],
+                "action": "predefined"
+            },
+            {
+                "query_type": "HTTPS",
+                "action": "predefined"
+            },
+            {
+                "query_type": [
+                    "A",
+                    "AAAA"
+                ],
+                "rewrite_ttl": 1,
+                "server": "fakeip"
+            },
+            {
+                "clash_mode": "global",
+                "server": "remote"
+            },
+            {
+                "clash_mode": "direct",
+                "server": "local"
+            },
+            {
+                "rule_set": "geosite-cn",
+                "server": "local"
+            },
+            {
+                "rule_set": "ext-cn-domain",
+                "server": "local"
+            }
+        ],
+        "strategy": "prefer_ipv4",
+        "independent_cache": true
+    },
+    "inbounds": [
+        {
+            "type": "tun",
+            "address": [
+                "172.19.0.1/30",
+                "fdfe:dcba:9876::1/126"
+            ],
+            "strict_route": true,
+            "mtu": 9000,
+            "endpoint_independent_nat": true,
+            "auto_route": true
+        },
+        {
+            "type": "socks",
+            "tag": "socks-in",
+            "listen": "127.0.0.1",
+            "listen_port": 2333
+        },
+        {
+            "type": "mixed",
+            "tag": "mixed-in",
+            "listen": "127.0.0.1",
+            "listen_port": 2334
+        }
+    ],
+    "outbounds": [
+        {
+            "tag": "香港",
+            "type": "selector",
+            // 可以在策略组上使用 detour，会自动处理成 sing-box 能接受的格式
+            // "detour": "任意一个出站节点",
+            "outbounds": [
+                "香港自动选择",
+                "include: 🇭🇰|HK|hk|香港|港|HongKong"
+            ]
+        },
+        {
+            "type": "shadowsocks",
+            "tag": "任意一个出站节点",
+            "server": "127.0.0.1",
+            "server_port": 1080,
+            "method": "2022-blake3-aes-128-gcm",
+            "password": "8JCsPssfgS8tiRwiMlhARg=="
+        },
+        {
+            "tag": "香港自动选择",
+            "type": "urltest",
+            "outbounds": [
+                "include: 🇭🇰|HK|hk|香港|港|HongKong",
+                "❌"
+            ]
+        },
+        {
+            "tag": "美国",
+            "type": "selector",
+            "outbounds": [
+                "美国自动选择",
+                // 此处可以使用正则选择节点，满足正则要求的节点会被填充到此处的 outbounds
+                "include: 🇺🇸|US|us|美国|美|United States",
+                // 也可以使用正则排除不需要的节点
+                "exclude: 香港"
+            ]
+        },
+        {
+            "tag": "美国自动选择",
+            "type": "urltest",
+            "outbounds": [
+                "include: 🇺🇸|US|us|美国|美|United States",
+                // 假如机场不存在美国节点后，核心启动会报错 outbounds 为空，所以添加一个 block 类型的节点
+                "❌"
+            ]
+        },
+        {
+            "type": "block",
+            // 项目兼容原因，block 的 tag 名请使用除 block 外的名字，比如当前的 emoji
+            "tag": "❌"
+        }
+    ],
+    "route": {
+        "rules": [
+            {
+                "action": "sniff"
+            },
+            {
+                "protocol": "dns",
+                "action": "hijack-dns"
+            },
+            {
+                "clash_mode": "direct",
+                "outbound": "direct"
+            },
+            {
+                "clash_mode": "global",
+                "outbound": "select"
+            },
+            {
+                "rule_set": "ai",
+                "outbound": "美国"
+            },
+            {
+                "rule_set": "google",
+                "outbound": "香港"
+            },
+            // 放置在域名规则之后，ip规则之前，可以让域名直接发送到节点服务器解析，而非通过本地的 dns 模块解析，从而解析出更合适的 ip
+            {
+                "action": "resolve",
+                "strategy": "prefer_ipv4"
+            },
+            {
+                "ip_is_private": true,
+                "outbound": "direct"
+            },
+            {
+                "rule_set": "geoip-cn",
+                "outbound": "direct"
+            }
+        ],
+        "auto_detect_interface": true,
+        "default_domain_resolver": {
+            "server": "local"
+        },
+        "rule_set": [
+            {
+                "tag": "geoip-cn",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs"
+            },
+            {
+                "tag": "geosite-cn",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/geolocation-cn.srs"
+            },
+            {
+                "tag": "AdGuardSDNSFilter",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://raw.githubusercontent.com/xmdhs/sing-box-ruleset/rule-set/AdGuardSDNSFilterSingBox.srs"
+            },
+            {
+                "tag": "chrome-doh",
+                "type": "remote",
+                "format": "source",
+                "url": "https://gist.githubusercontent.com/xmdhs/71fc5ff6ef29f5ecaf2c52b8de5c3172/raw/chrome-doh.json"
+            },
+            {
+                "tag": "ext-cn-domain",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://raw.githubusercontent.com/xmdhs/cn-domain-list/rule-set/ext-cn-list.srs"
+            },
+            {
+                "tag": "ai",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ai-!cn.srs"
+            },
+            {
+                "tag": "google",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/google.srs"
+            }
+        ]
+    },
+    "experimental": {
+        "cache_file": {
+            "enabled": true
+        },
+        "clash_api": {
+            "external_controller": "127.0.0.1:9090",
+            "secret": ""
+        }
+    }
+}
