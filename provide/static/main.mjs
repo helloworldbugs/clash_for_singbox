@@ -45,6 +45,7 @@ createApp({
         const disableUrlTest = ref(false)
         const outFields = ref("")
         const configType = ref("")
+        const proxyGroups = ref([])
 
 
         let oldConfig = "";
@@ -70,6 +71,12 @@ createApp({
             addTag.value && subUrl.searchParams.set("addTag", "true")
             disableUrlTest.value && subUrl.searchParams.set("disableUrlTest", "true")
             outFields.value && subUrl.searchParams.set("outFields", outFields.value)
+            if (proxyGroups.value.length > 0) {
+                const groupString = JSON.stringify(proxyGroups.value)
+                const compressed = await compressString(groupString)
+                const base64String = Base64.fromUint8Array(compressed, true)
+                subUrl.searchParams.set("proxyGroups", base64String)
+            }
             subUrl.searchParams.set("sub", sub.value)
             return subUrl.toString()
         }
@@ -159,6 +166,12 @@ createApp({
                         addTag.value = u.searchParams.get("addTag") === "true"
                         disableUrlTest.value = u.searchParams.get("disableUrlTest") === "true"
                         outFields.value = u.searchParams.get("outFields") || outFields.value
+                        const pg = u.searchParams.get("proxyGroups")
+                        if (pg && pg !== "") {
+                            const pgJson = await decompressString(Base64.toUint8Array(pg))
+                            const list = JSON.parse(pgJson)
+                            proxyGroups.value = Array.isArray(list) ? list : []
+                        }
                     } catch (error) {
                         console.log(error)
                         return
@@ -167,6 +180,20 @@ createApp({
 
             }
         });
+
+        function addProxyGroup() {
+            proxyGroups.value.push({
+                tag: "",
+                type: "urltest",
+                include: "",
+                exclude: "",
+                srsUrl: ""
+            })
+        }
+
+        function removeProxyGroup(index) {
+            proxyGroups.value.splice(index, 1)
+        }
 
         function onChange() {
             outFields.value = ""
@@ -211,7 +238,10 @@ createApp({
             disableUrlTest,
             outFields,
             configType,
-            onChange
+            onChange,
+            proxyGroups,
+            addProxyGroup,
+            removeProxyGroup
         }
 
     },

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"io/fs"
 	"net/http"
@@ -49,6 +50,7 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	addTag := r.FormValue("addTag")
 	disableUrlTest := r.FormValue("disableUrlTest")
 	outFields := r.FormValue("outFields")
+	proxyGroups := r.FormValue("proxyGroups")
 	disableUrlTestb := false
 	addTagb := false
 
@@ -76,6 +78,20 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 		DisableUrlTest: disableUrlTestb,
 		OutFields:      true,
 		Ver:            v,
+	}
+	if proxyGroups != "" {
+		b, err := zlibDecode(proxyGroups)
+		if err != nil {
+			h.l.WarnContext(ctx, err.Error())
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		err = json.Unmarshal(b, &a.ProxyGroups)
+		if err != nil {
+			h.l.WarnContext(ctx, err.Error())
+			http.Error(w, err.Error(), 400)
+			return
+		}
 	}
 
 	if v > cmodel.SING110 {
