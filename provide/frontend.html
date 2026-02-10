@@ -37,6 +37,10 @@
             <p>将 clash 格式的订阅链接转换为 sing-box 的工具，转换后的链接可用于 <a href="https://sing-box.sagernet.org/clients/">SFA</a>。</p>
             <p>在此页面粘贴由本工具生成的订阅链接（仅参数保存在链接内可用），可解析到下面的选项中</p>
             <input placeholder="订阅链接，多个链接使用 | 分割" v-model.trim="sub"  />
+            <div class="grid">
+                <input placeholder="全局白名单 include 正则，例如 ^(?!.*(过期|流量告急)).*$" v-model="include" />
+                <input placeholder="全局黑名单 exclude 正则，例如 (过期|流量告急)" v-model="exclude" />
+            </div>
             <br />
             <details>
                 <summary>配置文件模板</summary>
@@ -46,12 +50,23 @@
                     <input type="checkbox" id="addTag" role="switch" v-model="addTag">
                     生成的节点中添加订阅地址的域名，用以区分不同订阅的节点
                 </label>
-                <div style="display: flex;align-items:baseline;column-gap:3em">
-                    <span style="width: max-content;">是否在出站中添加 block 和 dns</span>
-                    <select style="width: min-content;" v-model="outFields">
-                        <option value="1">是</option>
-                        <option selected value="0">否</option>
+                <label for="outFields">
+                    <input type="checkbox" id="outFields" role="switch" v-model="outFields">
+                    是否在出站中添加 block 和 dns
+                </label>
+                <label for="enableTun">
+                    <input type="checkbox" id="enableTun" role="switch" v-model="enableTun">
+                    是否开启 tun 模式
+                </label>
+                <div style="display: flex;align-items:baseline;column-gap:1em;flex-wrap: wrap;">
+                    <span style="width: max-content;">代理端口类型</span>
+                    <select style="width: min-content;" v-model="proxyType">
+                        <option value="mixed">Mixed</option>
+                        <option value="http">HTTP</option>
+                        <option value="socks">SOCKS5</option>
                     </select>
+                    <span style="width: max-content;">监听端口</span>
+                    <input type="number" min="1" max="65535" style="width: 10em;" v-model.number="proxyPort" />
                 </div>
                 <div style="display: flex;align-items:baseline;column-gap:3em">
                     <span style="width: max-content;">配置文件选项</span>
