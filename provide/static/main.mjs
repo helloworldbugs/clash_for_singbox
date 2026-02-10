@@ -46,6 +46,8 @@ createApp({
         const proxyType = ref("mixed")
         const proxyPort = ref(7890)
         const configType = ref("4")
+        const include = ref('')
+        const exclude = ref('')
         const proxyGroups = ref([
             {
                 tag: "urltest",
@@ -95,6 +97,8 @@ createApp({
                 const base64String = Base64.fromUint8Array(compressed, true)
                 subUrl.searchParams.set("proxyGroups", base64String)
             }
+            include.value && subUrl.searchParams.set("include", include.value)
+            exclude.value && subUrl.searchParams.set("exclude", exclude.value)
             subUrl.searchParams.set("sub", sub.value)
             return subUrl.toString()
         }
@@ -203,6 +207,8 @@ createApp({
                             const list = JSON.parse(pgJson)
                             proxyGroups.value = Array.isArray(list) ? list : []
                         }
+                        include.value = u.searchParams.get("include") || ""
+                        exclude.value = u.searchParams.get("exclude") || ""
                     } catch (error) {
                         console.log(error)
                         return
@@ -269,7 +275,9 @@ createApp({
             onChange,
             proxyGroups,
             addProxyGroup,
-            removeProxyGroup
+            removeProxyGroup,
+            include,
+            exclude
         }
 
     },
