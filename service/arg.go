@@ -53,6 +53,10 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 	if err != nil {
 		return nil, fmt.Errorf("MakeConfig: %w", err)
 	}
+	m, err = applyGlobalNodeFilter(m, arg.Include, arg.Exclude)
+	if err != nil {
+		return nil, fmt.Errorf("MakeConfig: %w", err)
+	}
 
 	result, err := json.Marshal(m)
 	if err != nil {
@@ -60,6 +64,87 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 	}
 
 	return result, nil
+}
+
+func applyGlobalNodeFilter(config map[string]any, include, exclude string) (map[string]any, error) {
+	include = strings.TrimSpace(include)
+	exclude = strings.TrimSpace(exclude)
+	if include == "" && exclude == "" {
+		return config, nil
+	}
+
+	outbounds := utils.AnyGet[[]any](config, "outbounds")
+	if len(outbounds) == 0 {
+		return config, nil
+	}
+
+	nodeIndexes := make([]int, 0, len(outbounds))
+	nodeTags := make([]string, 0, len(outbounds))
+	for i, outbound := range outbounds {
+		typeStr := utils.AnyGet[string](outbound, "type")
+		tag := utils.AnyGet[string](outbound, "tag")
+		if tag == "" || tag == "direct" || tag == "block" || tag == "dns-out" {
+			continue
+		}
+		if typeStr == "selector" || typeStr == "urltest" {
+			continue
+		}
+		nodeIndexes = append(nodeIndexes, i)
+		nodeTags = append(nodeTags, tag)
+	}
+
+	filteredTags, err := filterTags(nodeTags, include, exclude)
+	if err != nil {
+		return nil, fmt.Errorf("applyGlobalNodeFilter: %w", err)
+	}
+	if len(filteredTags) == len(nodeTags) {
+		return config, nil
+	}
+
+	keepNodeSet := make(map[string]struct{}, len(filteredTags))
+	for _, tag := range filteredTags {
+		keepNodeSet[tag] = struct{}{}
+	}
+
+	keepOutbound := make([]bool, len(outbounds))
+	for i := range outbounds {
+		keepOutbound[i] = true
+	}
+	for idx, tag := range nodeTags {
+		if _, ok := keepNodeSet[tag]; !ok {
+			keepOutbound[nodeIndexes[idx]] = false
+		}
+	}
+
+	newOutbounds := make([]any, 0, len(outbounds))
+	for i, outbound := range outbounds {
+		if !keepOutbound[i] {
+			continue
+		}
+		refs := utils.AnyGet[[]any](outbound, "outbounds")
+		if len(refs) != 0 {
+			filteredRefs := make([]any, 0, len(refs))
+			for _, ref := range refs {
+				refTag, ok := ref.(string)
+				if !ok {
+					filteredRefs = append(filteredRefs, ref)
+					continue
+				}
+				if strings.HasPrefix(refTag, "include: ") || strings.HasPrefix(refTag, "exclude: ") {
+					filteredRefs = append(filteredRefs, ref)
+					continue
+				}
+				if _, ok := keepNodeSet[refTag]; ok {
+					filteredRefs = append(filteredRefs, ref)
+				}
+			}
+			utils.AnySet(&outbound, filteredRefs, "outbounds")
+		}
+		newOutbounds = append(newOutbounds, outbound)
+	}
+
+	utils.AnySet(&config, newOutbounds, "outbounds")
+	return config, nil
 }
 
 func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[string]any {
