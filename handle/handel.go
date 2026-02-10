@@ -16,6 +16,8 @@ import (
 	"github.com/xmdhs/clash2sfa/model"
 	"github.com/xmdhs/clash2sfa/service"
 	"github.com/xmdhs/clash2sfa/utils"
+
+	cmodel "github.com/xmdhs/clash2singbox/model"
 )
 
 type Handle struct {
@@ -46,6 +48,7 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	include := r.FormValue("include")
 	exclude := r.FormValue("exclude")
 	addTag := r.FormValue("addTag")
+	disableUrlTest := r.FormValue("disableUrlTest")
 	outFields := r.FormValue("outFields")
 	proxyGroups := r.FormValue("proxyGroups")
 	disableUrlTestb := false
@@ -59,6 +62,10 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	if addTag == "true" {
 		addTagb = true
 	}
+	if disableUrlTest == "true" {
+		disableUrlTestb = true
+	}
+
 	v := utils.GetSingBoxVersion(r)
 	defaultConfig := utils.GetConfig(v, h.configFs)
 
@@ -68,8 +75,8 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 		Exclude:        exclude,
 		ConfigUrl:      curl,
 		AddTag:         addTagb,
-		DisableUrlTest: true,
-		OutFields:      false,
+		DisableUrlTest: disableUrlTestb,
+		OutFields:      true,
 		Ver:            v,
 	}
 	if proxyGroups != "" {
@@ -93,7 +100,6 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	if outFields == "0" {
 		a.OutFields = false
 	}
-
 	if outFields == "1" {
 		a.OutFields = true
 	}
