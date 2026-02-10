@@ -48,6 +48,7 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 		return nil, fmt.Errorf("MakeConfig: %w", err)
 	}
 	m = applyProxyGroups(m, arg.ProxyGroups)
+	m = applyInboundSettings(m, arg.EnableTun, arg.ProxyType, arg.ProxyPort)
 	m, err = configUrlTestParser(m, nodeTag)
 	if err != nil {
 		return nil, fmt.Errorf("MakeConfig: %w", err)
@@ -128,6 +129,57 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	utils.AnySet(&route, rules, "rules")
 	utils.AnySet(&config, route, "route")
 	return config
+}
+
+func applyInboundSettings(config map[string]any, enableTun bool, proxyType string, proxyPort int) map[string]any {
+	inbounds := utils.AnyGet[[]any](config, "inbounds")
+	if len(inbounds) == 0 {
+		return config
+	}
+
+	if proxyType == "" {
+		proxyType = "mixed"
+	}
+	if proxyPort <= 0 {
+		proxyPort = 7890
+	}
+
+	newInbounds := make([]any, 0, len(inbounds))
+	proxySet := false
+	for _, inbound := range inbounds {
+		t := utils.AnyGet[string](inbound, "type")
+		if t == "tun" {
+			if enableTun {
+				newInbounds = append(newInbounds, inbound)
+			}
+			continue
+		}
+		if t == "mixed" || t == "http" || t == "socks" {
+			if proxySet {
+				continue
+			}
+			utils.AnySet(&inbound, proxyType, "type")
+			utils.AnySet(&inbound, "proxy-in", "tag")
+			utils.AnySet(&inbound, proxyPort, "listen_port")
+			newInbounds = append(newInbounds, inbound)
+			proxySet = true
+			continue
+		}
+		newInbounds = append(newInbounds, inbound)
+	}
+
+	if !proxySet {
+		newInbounds = append(newInbounds, map[string]any{
+			"type":        proxyType,
+			"tag":         "proxy-in",
+			"listen":      "127.0.0.1",
+			"listen_port": proxyPort,
+		})
+	}
+
+	utils.AnySet(&config, newInbounds, "inbounds")
+	return config
+
 }
 
 var (

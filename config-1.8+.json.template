@@ -124,7 +124,7 @@
                 "tag": "geoip-cn",
                 "type": "remote",
                 "format": "binary",
-                "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs"
+                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/geoip-cn.srs"
             },
             {
                 "tag": "geosite-cn",
@@ -136,7 +136,7 @@
                 "tag": "AdGuardSDNSFilter",
                 "type": "remote",
                 "format": "binary",
-                "url": "https://raw.githubusercontent.com/xmdhs/sing-box-ruleset/rule-set/AdGuardSDNSFilter.srs"
+                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ads-all.srs"
             },
             {
                 "tag": "chrome-doh",

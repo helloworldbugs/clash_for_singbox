@@ -46,12 +46,23 @@
                     <input type="checkbox" id="addTag" role="switch" v-model="addTag">
                     生成的节点中添加订阅地址的域名，用以区分不同订阅的节点
                 </label>
-                <div style="display: flex;align-items:baseline;column-gap:3em">
-                    <span style="width: max-content;">是否在出站中添加 block 和 dns</span>
-                    <select style="width: min-content;" v-model="outFields">
-                        <option value="1">是</option>
-                        <option selected value="0">否</option>
+                <label for="outFields">
+                    <input type="checkbox" id="outFields" role="switch" v-model="outFields">
+                    是否在出站中添加 block 和 dns
+                </label>
+                <label for="enableTun">
+                    <input type="checkbox" id="enableTun" role="switch" v-model="enableTun">
+                    是否开启 tun 模式
+                </label>
+                <div style="display: flex;align-items:baseline;column-gap:1em;flex-wrap: wrap;">
+                    <span style="width: max-content;">代理端口类型</span>
+                    <select style="width: min-content;" v-model="proxyType">
+                        <option value="mixed">混合模式（http/socks5）</option>
+                        <option value="http">http</option>
+                        <option value="socks">socks5</option>
                     </select>
+                    <span style="width: max-content;">监听端口</span>
+                    <input type="number" min="1" max="65535" style="width: 10em;" v-model.number="proxyPort" />
                 </div>
                 <div style="display: flex;align-items:baseline;column-gap:3em">
                     <span style="width: max-content;">配置文件选项</span>

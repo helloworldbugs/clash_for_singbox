@@ -124,7 +124,7 @@
                 "tag": "geoip-cn",
                 "type": "remote",
                 "format": "binary",
-                "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs"
+                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/geoip-cn.srs"
             },
             {
                 "tag": "geosite-cn",
@@ -136,7 +136,7 @@
                 "tag": "ext-cn-domain",
                 "type": "remote",
                 "format": "binary",
-                "url": "https://raw.githubusercontent.com/xmdhs/cn-domain-list/rule-set/ext-cn-list.srs"
+                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/cn.srs"
             }
         ]
     },
