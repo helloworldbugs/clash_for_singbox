@@ -78,22 +78,26 @@ func applyGlobalNodeFilter(config map[string]any, include, exclude string) (map[
 		return config, nil
 	}
 
-	candidateIndexes := make([]int, 0, len(outbounds))
-	candidateTags := make([]string, 0, len(outbounds))
+	nodeIndexes := make([]int, 0, len(outbounds))
+	nodeTags := make([]string, 0, len(outbounds))
 	for i, outbound := range outbounds {
+		typeStr := utils.AnyGet[string](outbound, "type")
 		tag := utils.AnyGet[string](outbound, "tag")
 		if tag == "" || tag == "direct" || tag == "block" || tag == "dns-out" {
 			continue
 		}
-		candidateIndexes = append(candidateIndexes, i)
-		candidateTags = append(candidateTags, tag)
+		if typeStr == "selector" || typeStr == "urltest" {
+			continue
+		}
+		nodeIndexes = append(nodeIndexes, i)
+		nodeTags = append(nodeTags, tag)
 	}
 
-	filteredTags, err := filterTags(candidateTags, include, exclude)
+	filteredTags, err := filterTags(nodeTags, include, exclude)
 	if err != nil {
 		return nil, fmt.Errorf("applyGlobalNodeFilter: %w", err)
 	}
-	if len(filteredTags) == len(candidateTags) {
+	if len(filteredTags) == len(nodeTags) {
 		return config, nil
 	}
 
@@ -106,9 +110,9 @@ func applyGlobalNodeFilter(config map[string]any, include, exclude string) (map[
 	for i := range outbounds {
 		keepOutbound[i] = true
 	}
-	for idx, tag := range candidateTags {
+	for idx, tag := range nodeTags {
 		if _, ok := keepNodeSet[tag]; !ok {
-			keepOutbound[candidateIndexes[idx]] = false
+			keepOutbound[nodeIndexes[idx]] = false
 		}
 	}
 
