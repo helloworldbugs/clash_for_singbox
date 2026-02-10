@@ -82,7 +82,7 @@ createApp({
             configurl.value && subUrl.searchParams.set("configurl", configurl.value)
             addTag.value && subUrl.searchParams.set("addTag", "true")
             disableUrlTest.value && subUrl.searchParams.set("disableUrlTest", "true")
-            subUrl.searchParams.set("outFields", addOutFields.value ? "1" : "0")
+            outFields.value && subUrl.searchParams.set("outFields", outFields.value)
             if (proxyGroups.value.length > 0) {
                 const groupString = JSON.stringify(proxyGroups.value)
                 const compressed = await compressString(groupString)
@@ -240,7 +240,7 @@ createApp({
             inputRef,
             addTag,
             disableUrlTest,
-            addOutFields,
+            outFields,
             configType,
             onChange,
             proxyGroups,
