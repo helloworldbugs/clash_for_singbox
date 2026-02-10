@@ -37,10 +37,6 @@
             <p>将 clash 格式的订阅链接转换为 sing-box 的工具，转换后的链接可用于 <a href="https://sing-box.sagernet.org/clients/">SFA</a>。</p>
             <p>在此页面粘贴由本工具生成的订阅链接（仅参数保存在链接内可用），可解析到下面的选项中</p>
             <input placeholder="订阅链接，多个链接使用 | 分割" v-model.trim="sub"  />
-            <div class="grid">
-                <input placeholder="全局白名单 include 正则，例如 ^(?!.*(过期|流量告急)).*$" v-model="include" />
-                <input placeholder="全局黑名单 exclude 正则，例如 (过期|流量告急)" v-model="exclude" />
-            </div>
             <br />
             <details>
                 <summary>配置文件模板</summary>
