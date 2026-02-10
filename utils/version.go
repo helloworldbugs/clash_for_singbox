@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"net/http"
 	"regexp"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/xmdhs/clash2singbox/model"
@@ -47,10 +46,4 @@ func GetConfig(v model.SingBoxVer, configFs fs.FS) []byte {
 	default:
 		return FsReadAll(configFs, "config.json-1.12.0+.template")
 	}
-}
-
-// IsBrowser 检查 User-Agent 是否为浏览器
-func IsBrowser(userAgent string) bool {
-	ua := strings.ToLower(userAgent)
-	return strings.Contains(ua, "mozilla")
 }
