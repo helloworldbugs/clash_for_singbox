@@ -41,8 +41,6 @@ createApp({
         const inputRef = ref(null)
         const addTag = ref(false)
         const disableUrlTest = ref(true)
-        const include = ref("")
-        const exclude = ref("")
         const outFields = ref(false)
         const enableTun = ref(true)
         const proxyType = ref("mixed")
@@ -87,8 +85,6 @@ createApp({
             configurl.value && subUrl.searchParams.set("configurl", configurl.value)
             addTag.value && subUrl.searchParams.set("addTag", "true")
             disableUrlTest.value && subUrl.searchParams.set("disableUrlTest", "true")
-            include.value && subUrl.searchParams.set("include", include.value)
-            exclude.value && subUrl.searchParams.set("exclude", exclude.value)
             subUrl.searchParams.set("outFields", String(outFields.value))
             subUrl.searchParams.set("enableTun", String(enableTun.value))
             subUrl.searchParams.set("proxyType", proxyType.value)
@@ -185,8 +181,6 @@ createApp({
                         sub.value = u.searchParams.get("sub") || sub.value
                         addTag.value = u.searchParams.get("addTag") === "true"
                         disableUrlTest.value = u.searchParams.get("disableUrlTest") !== "false"
-                        include.value = u.searchParams.get("include") || include.value
-                        exclude.value = u.searchParams.get("exclude") || exclude.value
                         const outFieldsValue = u.searchParams.get("outFields")
                         if (outFieldsValue !== null) {
                             outFields.value = outFieldsValue === "1" || outFieldsValue === "true"
