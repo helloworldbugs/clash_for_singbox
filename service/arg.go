@@ -48,6 +48,7 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 	if err != nil {
 		return nil, fmt.Errorf("MakeConfig: %w", err)
 	}
+	m = applyProxyGroups(m, arg.ProxyGroups)
 	m, err = configUrlTestParser(m, nodeTag)
 	if err != nil {
 		return nil, fmt.Errorf("MakeConfig: %w", err)
@@ -74,6 +75,75 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 	}
 
 	return result, nil
+}
+
+func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[string]any {
+	if len(groups) == 0 {
+		return config
+	}
+	outbounds := utils.AnyGet[[]any](config, "outbounds")
+	route := utils.AnyGet[map[string]any](config, "route")
+	ruleSet := utils.AnyGet[[]any](route, "rule_set")
+	rules := utils.AnyGet[[]any](route, "rules")
+
+	for _, group := range groups {
+		tag := strings.TrimSpace(group.Tag)
+		if tag == "" {
+			continue
+		}
+		groupType := strings.TrimSpace(group.Type)
+		if groupType == "" {
+			groupType = "urltest"
+		}
+
+		include := strings.TrimSpace(group.Include)
+		exclude := strings.TrimSpace(group.Exclude)
+		if include == "" && exclude == "" {
+			include = ".*"
+		}
+
+		newOutbound := map[string]any{
+			"type":      groupType,
+			"tag":       tag,
+			"outbounds": []any{},
+		}
+		if groupType == "urltest" {
+			newOutbound["url"] = "https://cp.cloudflare.com/generate_204"
+			newOutbound["interval"] = "10m"
+			newOutbound["tolerance"] = 50
+		}
+
+		outboundItems := make([]any, 0, 2)
+		if include != "" {
+			outboundItems = append(outboundItems, "include: "+include)
+		}
+		if exclude != "" {
+			outboundItems = append(outboundItems, "exclude: "+exclude)
+		}
+		newOutbound["outbounds"] = outboundItems
+		outbounds = append(outbounds, newOutbound)
+
+		srsURL := strings.TrimSpace(group.SrsURL)
+		if srsURL != "" {
+			ruleSetTag := tag + "-rule-set"
+			ruleSet = append(ruleSet, map[string]any{
+				"tag":    ruleSetTag,
+				"type":   "remote",
+				"format": "binary",
+				"url":    srsURL,
+			})
+			rules = append(rules, map[string]any{
+				"rule_set": ruleSetTag,
+				"outbound": tag,
+			})
+		}
+	}
+
+	utils.AnySet(&config, outbounds, "outbounds")
+	utils.AnySet(&route, ruleSet, "rule_set")
+	utils.AnySet(&route, rules, "rules")
+	utils.AnySet(&config, route, "route")
+	return config
 }
 
 var (
