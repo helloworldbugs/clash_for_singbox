@@ -48,6 +48,7 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	addTag := r.FormValue("addTag")
 	outFields := r.FormValue("outFields")
 	proxyGroups := r.FormValue("proxyGroups")
+	disableUrlTestb := false
 	addTagb := false
 
 	if sub == "" {
@@ -84,6 +85,13 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
+	}
+
+	if v > cmodel.SING110 {
+		a.OutFields = false
+	}
+	if outFields == "0" {
+		a.OutFields = false
 	}
 
 	if outFields == "1" {

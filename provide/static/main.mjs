@@ -50,6 +50,10 @@ createApp({
         const outFields = ref("0")
         const configType = ref("4")
         const proxyGroups = ref(defaultProxyGroups())
+        const disableUrlTest = ref(false)
+        const outFields = ref("")
+        const configType = ref("")
+        const proxyGroups = ref([])
 
 
         let oldConfig = "";
@@ -73,6 +77,8 @@ createApp({
             configurl.value && subUrl.searchParams.set("configurl", configurl.value)
             addTag.value && subUrl.searchParams.set("addTag", "true")
             subUrl.searchParams.set("outFields", outFields.value || "0")
+            disableUrlTest.value && subUrl.searchParams.set("disableUrlTest", "true")
+            outFields.value && subUrl.searchParams.set("outFields", outFields.value)
             if (proxyGroups.value.length > 0) {
                 const groupString = JSON.stringify(proxyGroups.value)
                 const compressed = await compressString(groupString)
@@ -172,6 +178,7 @@ createApp({
                             proxyGroups.value = Array.isArray(list) ? list : defaultProxyGroups()
                         } else {
                             proxyGroups.value = defaultProxyGroups()
+                            proxyGroups.value = Array.isArray(list) ? list : []
                         }
                     } catch (error) {
                         console.log(error)
