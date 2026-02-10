@@ -16,6 +16,13 @@ async function compressString(str) {
     return new Uint8Array(compressedArray);
 }
 
+function defaultProxyGroups() {
+    return [
+        { tag: "urltest", type: "urltest", include: ".*", exclude: "", srsUrl: "" },
+        { tag: "select", type: "selector", include: ".*", exclude: "", srsUrl: "" }
+    ]
+}
+
 async function decompressString(compressedData) {
     const inputStream = new ReadableStream({
         start(controller) {
@@ -35,13 +42,14 @@ createApp({
     setup(props, context) {
         const sub = ref('');
         const newsub = ref('');
-        const include = ref('');
-        const exclude = ref('');
         const config = ref('加载中');
         const configurl = ref('');
         const inFetch = ref(false)
         const inputRef = ref(null)
         const addTag = ref(false)
+        const outFields = ref("0")
+        const configType = ref("4")
+        const proxyGroups = ref(defaultProxyGroups())
         const disableUrlTest = ref(false)
         const outFields = ref("")
         const configType = ref("")
@@ -54,6 +62,7 @@ createApp({
             const f = await fetch("/config/config.json-1.12.0+.template?" + window.version ?? "")
             config.value = await f.text()
             oldConfig = config.value
+            onChange()
         })();
 
         async function saveParameter() {
@@ -66,9 +75,8 @@ createApp({
                 subUrl.searchParams.set("config", base64String)
             }
             configurl.value && subUrl.searchParams.set("configurl", configurl.value)
-            include.value && subUrl.searchParams.set("include", include.value)
-            exclude.value && subUrl.searchParams.set("exclude", exclude.value)
             addTag.value && subUrl.searchParams.set("addTag", "true")
+            subUrl.searchParams.set("outFields", outFields.value || "0")
             disableUrlTest.value && subUrl.searchParams.set("disableUrlTest", "true")
             outFields.value && subUrl.searchParams.set("outFields", outFields.value)
             if (proxyGroups.value.length > 0) {
@@ -160,16 +168,16 @@ createApp({
                         } else {
                             configurl.value = ""
                         }
-                        include.value = u.searchParams.get("include") || include.value
-                        exclude.value = u.searchParams.get("exclude") || exclude.value
                         sub.value = u.searchParams.get("sub") || sub.value
                         addTag.value = u.searchParams.get("addTag") === "true"
-                        disableUrlTest.value = u.searchParams.get("disableUrlTest") === "true"
                         outFields.value = u.searchParams.get("outFields") || outFields.value
                         const pg = u.searchParams.get("proxyGroups")
                         if (pg && pg !== "") {
                             const pgJson = await decompressString(Base64.toUint8Array(pg))
                             const list = JSON.parse(pgJson)
+                            proxyGroups.value = Array.isArray(list) ? list : defaultProxyGroups()
+                        } else {
+                            proxyGroups.value = defaultProxyGroups()
                             proxyGroups.value = Array.isArray(list) ? list : []
                         }
                     } catch (error) {
@@ -196,7 +204,6 @@ createApp({
         }
 
         function onChange() {
-            outFields.value = ""
             if (configType.value != "2") {
                 config.value = ""
             }
@@ -215,27 +222,20 @@ createApp({
                 configurl.value = "config.json-1.12.0+.template"
                 outFields.value = "0"
             }
-            if (configType.value === "2") {
-                if (config.value == "") {
-                    config.value = oldConfig
-                }
+            if (configType.value === "2" && config.value == "") {
+                config.value = oldConfig
             }
-
         }
-
 
         return {
             sub,
             config,
-            include,
-            exclude,
             newsub,
             click,
             configurl,
             inFetch,
             inputRef,
             addTag,
-            disableUrlTest,
             outFields,
             configType,
             onChange,
