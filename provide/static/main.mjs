@@ -41,7 +41,7 @@ createApp({
         const inputRef = ref(null)
         const addTag = ref(false)
         const disableUrlTest = ref(true)
-        const addOutFields = ref(false)
+        const outFields = ref("0")
         const configType = ref("4")
         const proxyGroups = ref([
             {
@@ -175,7 +175,7 @@ createApp({
                         sub.value = u.searchParams.get("sub") || sub.value
                         addTag.value = u.searchParams.get("addTag") === "true"
                         disableUrlTest.value = u.searchParams.get("disableUrlTest") !== "false"
-                        addOutFields.value = u.searchParams.get("outFields") === "1"
+                        outFields.value = u.searchParams.get("outFields") || outFields.value
                         const pg = u.searchParams.get("proxyGroups")
                         if (pg && pg !== "") {
                             const pgJson = await decompressString(Base64.toUint8Array(pg))

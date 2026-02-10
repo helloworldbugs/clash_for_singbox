@@ -46,10 +46,13 @@
                     <input type="checkbox" id="addTag" role="switch" v-model="addTag">
                     生成的节点中添加订阅地址的域名，用以区分不同订阅的节点
                 </label>
-                <label for="addOutFields">
-                    <input type="checkbox" id="addOutFields" role="switch" v-model="addOutFields">
-                    是否在出站中添加 block 和 dns
-                </label>
+                <div style="display: flex;align-items:baseline;column-gap:3em">
+                    <span style="width: max-content;">是否在出站中添加 block 和 dns</span>
+                    <select style="width: min-content;" v-model="outFields">
+                        <option value="1">是</option>
+                        <option selected value="0">否</option>
+                    </select>
+                </div>
                 <div style="display: flex;align-items:baseline;column-gap:3em">
                     <span style="width: max-content;">配置文件选项</span>
                     <select style="width: min-content;" v-model="configType" @change="onChange">
