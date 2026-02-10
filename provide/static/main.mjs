@@ -261,6 +261,8 @@ createApp({
             inputRef,
             addTag,
             disableUrlTest,
+            include,
+            exclude,
             outFields,
             enableTun,
             proxyType,
