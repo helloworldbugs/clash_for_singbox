@@ -41,7 +41,10 @@ createApp({
         const inputRef = ref(null)
         const addTag = ref(false)
         const disableUrlTest = ref(true)
-        const outFields = ref("0")
+        const outFields = ref(false)
+        const enableTun = ref(true)
+        const proxyType = ref("mixed")
+        const proxyPort = ref(7890)
         const configType = ref("4")
         const proxyGroups = ref([
             {
@@ -82,7 +85,10 @@ createApp({
             configurl.value && subUrl.searchParams.set("configurl", configurl.value)
             addTag.value && subUrl.searchParams.set("addTag", "true")
             disableUrlTest.value && subUrl.searchParams.set("disableUrlTest", "true")
-            outFields.value && subUrl.searchParams.set("outFields", outFields.value)
+            subUrl.searchParams.set("outFields", String(outFields.value))
+            subUrl.searchParams.set("enableTun", String(enableTun.value))
+            subUrl.searchParams.set("proxyType", proxyType.value)
+            subUrl.searchParams.set("proxyPort", String(proxyPort.value))
             if (proxyGroups.value.length > 0) {
                 const groupString = JSON.stringify(proxyGroups.value)
                 const compressed = await compressString(groupString)
@@ -175,7 +181,22 @@ createApp({
                         sub.value = u.searchParams.get("sub") || sub.value
                         addTag.value = u.searchParams.get("addTag") === "true"
                         disableUrlTest.value = u.searchParams.get("disableUrlTest") !== "false"
-                        outFields.value = u.searchParams.get("outFields") || outFields.value
+                        const outFieldsValue = u.searchParams.get("outFields")
+                        if (outFieldsValue !== null) {
+                            outFields.value = outFieldsValue === "1" || outFieldsValue === "true"
+                        }
+                        const enableTunValue = u.searchParams.get("enableTun")
+                        if (enableTunValue !== null) {
+                            enableTun.value = enableTunValue !== "false"
+                        }
+                        const proxyTypeValue = u.searchParams.get("proxyType")
+                        if (proxyTypeValue === "mixed" || proxyTypeValue === "http" || proxyTypeValue === "socks") {
+                            proxyType.value = proxyTypeValue
+                        }
+                        const proxyPortValue = Number(u.searchParams.get("proxyPort"))
+                        if (Number.isInteger(proxyPortValue) && proxyPortValue > 0 && proxyPortValue <= 65535) {
+                            proxyPort.value = proxyPortValue
+                        }
                         const pg = u.searchParams.get("proxyGroups")
                         if (pg && pg !== "") {
                             const pgJson = await decompressString(Base64.toUint8Array(pg))
@@ -241,6 +262,9 @@ createApp({
             addTag,
             disableUrlTest,
             outFields,
+            enableTun,
+            proxyType,
+            proxyPort,
             configType,
             onChange,
             proxyGroups,

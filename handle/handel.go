@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,6 +51,9 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	addTag := r.FormValue("addTag")
 	disableUrlTest := r.FormValue("disableUrlTest")
 	outFields := r.FormValue("outFields")
+	enableTun := r.FormValue("enableTun")
+	proxyType := r.FormValue("proxyType")
+	proxyPort := r.FormValue("proxyPort")
 	proxyGroups := r.FormValue("proxyGroups")
 	disableUrlTestb := false
 	addTagb := false
@@ -77,6 +81,9 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 		AddTag:         addTagb,
 		DisableUrlTest: disableUrlTestb,
 		OutFields:      true,
+		EnableTun:      true,
+		ProxyType:      "mixed",
+		ProxyPort:      7890,
 		Ver:            v,
 	}
 	if proxyGroups != "" {
@@ -97,11 +104,27 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	if v > cmodel.SING110 {
 		a.OutFields = false
 	}
-	if outFields == "0" {
+	if outFields == "0" || outFields == "false" {
 		a.OutFields = false
 	}
-	if outFields == "1" {
+	if outFields == "1" || outFields == "true" {
 		a.OutFields = true
+	}
+
+	if enableTun == "false" {
+		a.EnableTun = false
+	}
+	if proxyType == "http" || proxyType == "socks" || proxyType == "mixed" {
+		a.ProxyType = proxyType
+	}
+	if proxyPort != "" {
+		p, err := strconv.Atoi(proxyPort)
+		if err != nil || p <= 0 || p > 65535 {
+			h.l.WarnContext(ctx, "invalid proxyPort")
+			http.Error(w, "invalid proxyPort", 400)
+			return
+		}
+		a.ProxyPort = p
 	}
 
 	if a.ConfigUrl != "" && !strings.HasPrefix(a.ConfigUrl, "http") {
