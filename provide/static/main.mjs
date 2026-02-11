@@ -35,30 +35,17 @@ createApp({
     setup(props, context) {
         const sub = ref('');
         const newsub = ref('');
+        const include = ref('');
+        const exclude = ref('');
         const config = ref('加载中');
         const configurl = ref('');
         const inFetch = ref(false)
         const inputRef = ref(null)
         const addTag = ref(false)
-        const disableUrlTest = ref(true)
-        const outFields = ref("0")
-        const configType = ref("4")
-        const proxyGroups = ref([
-            {
-                tag: "urltest",
-                type: "urltest",
-                include: ".*",
-                exclude: "",
-                srsUrl: ""
-            },
-            {
-                tag: "select",
-                type: "selector",
-                include: ".*",
-                exclude: "",
-                srsUrl: ""
-            }
-        ])
+        const disableUrlTest = ref(false)
+        const outFields = ref("")
+        const configType = ref("")
+        const proxyGroups = ref([])
 
 
         let oldConfig = "";
@@ -67,7 +54,6 @@ createApp({
             const f = await fetch("/config/config.json-1.12.0+.template?" + window.version ?? "")
             config.value = await f.text()
             oldConfig = config.value
-            configurl.value = "config.json-1.12.0+.template"
         })();
 
         async function saveParameter() {
@@ -80,6 +66,8 @@ createApp({
                 subUrl.searchParams.set("config", base64String)
             }
             configurl.value && subUrl.searchParams.set("configurl", configurl.value)
+            include.value && subUrl.searchParams.set("include", include.value)
+            exclude.value && subUrl.searchParams.set("exclude", exclude.value)
             addTag.value && subUrl.searchParams.set("addTag", "true")
             disableUrlTest.value && subUrl.searchParams.set("disableUrlTest", "true")
             outFields.value && subUrl.searchParams.set("outFields", outFields.value)
@@ -172,9 +160,11 @@ createApp({
                         } else {
                             configurl.value = ""
                         }
+                        include.value = u.searchParams.get("include") || include.value
+                        exclude.value = u.searchParams.get("exclude") || exclude.value
                         sub.value = u.searchParams.get("sub") || sub.value
                         addTag.value = u.searchParams.get("addTag") === "true"
-                        disableUrlTest.value = u.searchParams.get("disableUrlTest") !== "false"
+                        disableUrlTest.value = u.searchParams.get("disableUrlTest") === "true"
                         outFields.value = u.searchParams.get("outFields") || outFields.value
                         const pg = u.searchParams.get("proxyGroups")
                         if (pg && pg !== "") {
@@ -206,6 +196,7 @@ createApp({
         }
 
         function onChange() {
+            outFields.value = ""
             if (configType.value != "2") {
                 config.value = ""
             }
@@ -214,12 +205,15 @@ createApp({
             }
             if (configType.value === "0") {
                 configurl.value = "config.json.template"
+                outFields.value = "1"
             }
             if (configType.value === "1") {
                 configurl.value = "config.json-1.11.0+.template"
+                outFields.value = "0"
             }
             if (configType.value === "4") {
                 configurl.value = "config.json-1.12.0+.template"
+                outFields.value = "0"
             }
             if (configType.value === "2") {
                 if (config.value == "") {
@@ -233,6 +227,8 @@ createApp({
         return {
             sub,
             config,
+            include,
+            exclude,
             newsub,
             click,
             configurl,

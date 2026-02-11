@@ -37,11 +37,20 @@
             <p>将 clash 格式的订阅链接转换为 sing-box 的工具，转换后的链接可用于 <a href="https://sing-box.sagernet.org/clients/">SFA</a>。</p>
             <p>在此页面粘贴由本工具生成的订阅链接（仅参数保存在链接内可用），可解析到下面的选项中</p>
             <input placeholder="订阅链接，多个链接使用 | 分割" v-model.trim="sub"  />
+            <div class="grid">
+                <input placeholder="url test 中包含的节点名（可用正则）" v-model="include" />
+                <input placeholder="url test 中排除的节点名（可用正则）" v-model="exclude" />
+            </div>
             <br />
             <details>
                 <summary>配置文件模板</summary>
                 <hr />
+                <span>可通过设置 urltest / selector 的 outbounds，来自定义生成配置文件后其中包含的节点。</span>
                 <span><a href="/static/config.json-group.jsonc" target="_blank">复杂分流模板示例</a></span>
+                <label>
+                    <input type="checkbox" role="switch" v-model="disableUrlTest">
+                    禁用默认生成的 urltest 和 selector
+                </label>
                 <label for="addTag">
                     <input type="checkbox" id="addTag" role="switch" v-model="addTag">
                     生成的节点中添加订阅地址的域名，用以区分不同订阅的节点
@@ -49,16 +58,18 @@
                 <div style="display: flex;align-items:baseline;column-gap:3em">
                     <span style="width: max-content;">是否在出站中添加 block 和 dns</span>
                     <select style="width: min-content;" v-model="outFields">
+                        <option selected value="">根据 UA 判断是否添加</option>
                         <option value="1">是</option>
-                        <option selected value="0">否</option>
+                        <option value="0">否</option>
                     </select>
                 </div>
                 <div style="display: flex;align-items:baseline;column-gap:3em">
                     <span style="width: max-content;">配置文件选项</span>
                     <select style="width: min-content;" v-model="configType" @change="onChange">
+                        <option selected value="">根据 UA 自动选择</option>
                         <option value="0">1.10-</option>
                         <option value="1">1.11+</option>
-                        <option selected value="4">1.12+</option>
+                        <option value="4">1.12+</option>
                         <option value="2">自定义模板</option>
                         <option value="3">自定义模板直链</option>
                     </select>
