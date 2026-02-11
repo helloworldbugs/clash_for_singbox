@@ -53,6 +53,7 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 	if err != nil {
 		return nil, fmt.Errorf("MakeConfig: %w", err)
 	}
+	m = normalizeDefaultProxyGroups(m)
 
 	result, err := json.Marshal(m)
 	if err != nil {
@@ -60,6 +61,70 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 	}
 
 	return result, nil
+}
+
+func normalizeDefaultProxyGroups(config map[string]any) map[string]any {
+	outbounds := utils.AnyGet[[]any](config, "outbounds")
+	if len(outbounds) == 0 {
+		return config
+	}
+
+	selectIndex := -1
+	urltestIndex := -1
+
+	for index, item := range outbounds {
+		tag := utils.AnyGet[string](item, "tag")
+		switch tag {
+		case "select":
+			selectIndex = index
+			normalized := normalizeSelectOutbounds(utils.AnyGet[[]any](item, "outbounds"))
+			if len(normalized) != 0 {
+				utils.AnySet(&item, normalized, "outbounds")
+				outbounds[index] = item
+			}
+		case "urltest":
+			urltestIndex = index
+		}
+	}
+
+	if selectIndex == -1 || urltestIndex == -1 {
+		utils.AnySet(&config, outbounds, "outbounds")
+		return config
+	}
+
+	reordered := make([]any, 0, len(outbounds))
+	reordered = append(reordered, outbounds[selectIndex], outbounds[urltestIndex])
+	for index, item := range outbounds {
+		if index == selectIndex || index == urltestIndex {
+			continue
+		}
+		reordered = append(reordered, item)
+	}
+
+	utils.AnySet(&config, reordered, "outbounds")
+	return config
+}
+
+func normalizeSelectOutbounds(outbounds []any) []any {
+	if len(outbounds) == 0 {
+		return nil
+	}
+
+	normalized := make([]any, 0, len(outbounds)+2)
+	normalized = append(normalized, "direct", "urltest")
+
+	for _, item := range outbounds {
+		s, ok := item.(string)
+		if !ok {
+			continue
+		}
+		if s == "direct" || s == "urltest" {
+			continue
+		}
+		normalized = append(normalized, s)
+	}
+
+	return normalized
 }
 
 func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[string]any {
