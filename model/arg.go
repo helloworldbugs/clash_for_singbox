@@ -14,6 +14,9 @@ type ConvertArg struct {
 	AddTag         bool
 	DisableUrlTest bool
 	OutFields      bool
+	EnableTun      bool
+	ProxyType      string
+	ProxyPort      int
 	Ver            model.SingBoxVer
 }
 
