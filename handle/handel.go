@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -50,9 +51,13 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	addTag := r.FormValue("addTag")
 	disableUrlTest := r.FormValue("disableUrlTest")
 	outFields := r.FormValue("outFields")
+	enableTun := r.FormValue("enableTun")
+	proxyType := r.FormValue("proxyType")
+	proxyPort := r.FormValue("proxyPort")
 	proxyGroups := r.FormValue("proxyGroups")
 	disableUrlTestb := false
 	addTagb := false
+	enableTunb := true
 
 	if sub == "" {
 		h.l.DebugContext(ctx, "sub 不得为空")
@@ -67,7 +72,7 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := utils.GetSingBoxVersion(r)
-	defaultConfig := utils.GetConfig(v, h.configFs)
+	defaultConfig := utils.GetConfig(cmodel.SING112, h.configFs)
 
 	a := model.ConvertArg{
 		Sub:            sub,
@@ -76,8 +81,30 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 		ConfigUrl:      curl,
 		AddTag:         addTagb,
 		DisableUrlTest: disableUrlTestb,
-		OutFields:      true,
+		OutFields:      false,
+		EnableTun:      true,
+		ProxyType:      "mixed",
+		ProxyPort:      7890,
 		Ver:            v,
+	}
+
+	if enableTun == "false" {
+		enableTunb = false
+	}
+	a.EnableTun = enableTunb
+
+	if proxyType == "mixed" || proxyType == "http" || proxyType == "socks5" {
+		a.ProxyType = proxyType
+	}
+	if proxyPort != "" {
+		var parsed int
+		_, err := fmt.Sscanf(proxyPort, "%d", &parsed)
+		if err != nil || parsed <= 0 || parsed > 65535 {
+			h.l.WarnContext(ctx, "invalid proxyPort")
+			http.Error(w, "proxyPort must be in range 1-65535", 400)
+			return
+		}
+		a.ProxyPort = parsed
 	}
 	if proxyGroups != "" {
 		b, err := zlibDecode(proxyGroups)
@@ -94,13 +121,7 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if v > cmodel.SING110 {
-		a.OutFields = false
-	}
-	if outFields == "0" {
-		a.OutFields = false
-	}
-	if outFields == "1" {
+	if outFields == "1" || outFields == "true" {
 		a.OutFields = true
 	}
 

@@ -43,9 +43,12 @@ createApp({
         const inputRef = ref(null)
         const addTag = ref(false)
         const disableUrlTest = ref(false)
-        const outFields = ref("")
-        const configType = ref("")
+        const outFields = ref(false)
+        const configType = ref("4")
         const proxyGroups = ref([])
+        const enableTun = ref(true)
+        const proxyType = ref("mixed")
+        const proxyPort = ref(7890)
 
 
         let oldConfig = "";
@@ -70,7 +73,10 @@ createApp({
             exclude.value && subUrl.searchParams.set("exclude", exclude.value)
             addTag.value && subUrl.searchParams.set("addTag", "true")
             disableUrlTest.value && subUrl.searchParams.set("disableUrlTest", "true")
-            outFields.value && subUrl.searchParams.set("outFields", outFields.value)
+            subUrl.searchParams.set("outFields", outFields.value ? "1" : "0")
+            subUrl.searchParams.set("enableTun", enableTun.value ? "true" : "false")
+            subUrl.searchParams.set("proxyType", proxyType.value)
+            subUrl.searchParams.set("proxyPort", String(proxyPort.value || 7890))
             if (proxyGroups.value.length > 0) {
                 const groupString = JSON.stringify(proxyGroups.value)
                 const compressed = await compressString(groupString)
@@ -165,7 +171,22 @@ createApp({
                         sub.value = u.searchParams.get("sub") || sub.value
                         addTag.value = u.searchParams.get("addTag") === "true"
                         disableUrlTest.value = u.searchParams.get("disableUrlTest") === "true"
-                        outFields.value = u.searchParams.get("outFields") || outFields.value
+                        const outFieldsParam = u.searchParams.get("outFields")
+                        if (outFieldsParam != null && outFieldsParam !== "") {
+                            outFields.value = outFieldsParam === "1" || outFieldsParam === "true"
+                        }
+                        const enableTunParam = u.searchParams.get("enableTun")
+                        if (enableTunParam != null && enableTunParam !== "") {
+                            enableTun.value = enableTunParam === "true"
+                        }
+                        const proxyTypeParam = u.searchParams.get("proxyType")
+                        if (proxyTypeParam) {
+                            proxyType.value = proxyTypeParam
+                        }
+                        const proxyPortParam = Number(u.searchParams.get("proxyPort"))
+                        if (!Number.isNaN(proxyPortParam) && proxyPortParam > 0) {
+                            proxyPort.value = proxyPortParam
+                        }
                         const pg = u.searchParams.get("proxyGroups")
                         if (pg && pg !== "") {
                             const pgJson = await decompressString(Base64.toUint8Array(pg))
@@ -196,7 +217,7 @@ createApp({
         }
 
         function onChange() {
-            outFields.value = ""
+            outFields.value = false
             if (configType.value != "2") {
                 config.value = ""
             }
@@ -205,15 +226,12 @@ createApp({
             }
             if (configType.value === "0") {
                 configurl.value = "config.json.template"
-                outFields.value = "1"
             }
             if (configType.value === "1") {
                 configurl.value = "config.json-1.11.0+.template"
-                outFields.value = "0"
             }
             if (configType.value === "4") {
                 configurl.value = "config.json-1.12.0+.template"
-                outFields.value = "0"
             }
             if (configType.value === "2") {
                 if (config.value == "") {
@@ -240,6 +258,9 @@ createApp({
             configType,
             onChange,
             proxyGroups,
+            enableTun,
+            proxyType,
+            proxyPort,
             addProxyGroup,
             removeProxyGroup
         }
