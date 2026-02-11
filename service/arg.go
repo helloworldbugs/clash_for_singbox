@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -31,7 +32,7 @@ func NewConvert(c *http.Client, l *slog.Logger) *Convert {
 	}
 }
 
-func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configByte []byte) ([]byte, error) {
+func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configByte []byte, userAgent string) ([]byte, error) {
 	if arg.Config == nil && arg.ConfigUrl == "" {
 		arg.Config = configByte
 	}
@@ -48,83 +49,32 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 		return nil, fmt.Errorf("MakeConfig: %w", err)
 	}
 	m = applyProxyGroups(m, arg.ProxyGroups)
-	m = applyInboundSettings(m, arg.EnableTun, arg.ProxyType, arg.ProxyPort)
 	m, err = configUrlTestParser(m, nodeTag)
 	if err != nil {
 		return nil, fmt.Errorf("MakeConfig: %w", err)
 	}
-	m = normalizeDefaultProxyGroups(m)
 
-	result, err := json.Marshal(m)
-	if err != nil {
-		return nil, fmt.Errorf("MakeConfig: %w", err)
+	// 根据 User-Agent 决定是否格式化 JSON
+	var result []byte
+	if utils.IsBrowser(userAgent) {
+		// 浏览器请求，返回格式化的 JSON
+		bw := &bytes.Buffer{}
+		jw := json.NewEncoder(bw)
+		jw.SetIndent("", "    ")
+		err = jw.Encode(m)
+		if err != nil {
+			return nil, fmt.Errorf("MakeConfig: %w", err)
+		}
+		result = bw.Bytes()
+	} else {
+		// 非浏览器请求，返回压缩的 JSON
+		result, err = json.Marshal(m)
+		if err != nil {
+			return nil, fmt.Errorf("MakeConfig: %w", err)
+		}
 	}
 
 	return result, nil
-}
-
-func normalizeDefaultProxyGroups(config map[string]any) map[string]any {
-	outbounds := utils.AnyGet[[]any](config, "outbounds")
-	if len(outbounds) == 0 {
-		return config
-	}
-
-	selectIndex := -1
-	urltestIndex := -1
-
-	for index, item := range outbounds {
-		tag := utils.AnyGet[string](item, "tag")
-		switch tag {
-		case "select":
-			selectIndex = index
-			normalized := normalizeSelectOutbounds(utils.AnyGet[[]any](item, "outbounds"))
-			if len(normalized) != 0 {
-				utils.AnySet(&item, normalized, "outbounds")
-				outbounds[index] = item
-			}
-		case "urltest":
-			urltestIndex = index
-		}
-	}
-
-	if selectIndex == -1 || urltestIndex == -1 {
-		utils.AnySet(&config, outbounds, "outbounds")
-		return config
-	}
-
-	reordered := make([]any, 0, len(outbounds))
-	reordered = append(reordered, outbounds[selectIndex], outbounds[urltestIndex])
-	for index, item := range outbounds {
-		if index == selectIndex || index == urltestIndex {
-			continue
-		}
-		reordered = append(reordered, item)
-	}
-
-	utils.AnySet(&config, reordered, "outbounds")
-	return config
-}
-
-func normalizeSelectOutbounds(outbounds []any) []any {
-	if len(outbounds) == 0 {
-		return nil
-	}
-
-	normalized := make([]any, 0, len(outbounds)+2)
-	normalized = append(normalized, "direct", "urltest")
-
-	for _, item := range outbounds {
-		s, ok := item.(string)
-		if !ok {
-			continue
-		}
-		if s == "direct" || s == "urltest" {
-			continue
-		}
-		normalized = append(normalized, s)
-	}
-
-	return normalized
 }
 
 func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[string]any {
@@ -194,57 +144,6 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	utils.AnySet(&route, rules, "rules")
 	utils.AnySet(&config, route, "route")
 	return config
-}
-
-func applyInboundSettings(config map[string]any, enableTun bool, proxyType string, proxyPort int) map[string]any {
-	inbounds := utils.AnyGet[[]any](config, "inbounds")
-	if len(inbounds) == 0 {
-		return config
-	}
-
-	if proxyType == "" {
-		proxyType = "mixed"
-	}
-	if proxyPort <= 0 {
-		proxyPort = 7890
-	}
-
-	newInbounds := make([]any, 0, len(inbounds))
-	proxySet := false
-	for _, inbound := range inbounds {
-		t := utils.AnyGet[string](inbound, "type")
-		if t == "tun" {
-			if enableTun {
-				newInbounds = append(newInbounds, inbound)
-			}
-			continue
-		}
-		if t == "mixed" || t == "http" || t == "socks" {
-			if proxySet {
-				continue
-			}
-			utils.AnySet(&inbound, proxyType, "type")
-			utils.AnySet(&inbound, "proxy-in", "tag")
-			utils.AnySet(&inbound, proxyPort, "listen_port")
-			newInbounds = append(newInbounds, inbound)
-			proxySet = true
-			continue
-		}
-		newInbounds = append(newInbounds, inbound)
-	}
-
-	if !proxySet {
-		newInbounds = append(newInbounds, map[string]any{
-			"type":        proxyType,
-			"tag":         "proxy-in",
-			"listen":      "127.0.0.1",
-			"listen_port": proxyPort,
-		})
-	}
-
-	utils.AnySet(&config, newInbounds, "inbounds")
-	return config
-
 }
 
 var (

@@ -23,6 +23,13 @@
         ],
         "rules": [
             {
+                "rule_set": [
+                    "AdGuardSDNSFilter",
+                    "chrome-doh"
+                ],
+                "action": "predefined"
+            },
+            {
                 "query_type": "HTTPS",
                 "action": "predefined"
             },
@@ -119,7 +126,7 @@
                 "tag": "geoip-cn",
                 "type": "remote",
                 "format": "binary",
-                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/cn.srs"
+                "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs"
             },
             {
                 "tag": "geosite-cn",
@@ -128,10 +135,22 @@
                 "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/geolocation-cn.srs"
             },
             {
+                "tag": "AdGuardSDNSFilter",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://raw.githubusercontent.com/xmdhs/sing-box-ruleset/rule-set/AdGuardSDNSFilterSingBox.srs"
+            },
+            {
+                "tag": "chrome-doh",
+                "type": "remote",
+                "format": "source",
+                "url": "https://gist.githubusercontent.com/xmdhs/71fc5ff6ef29f5ecaf2c52b8de5c3172/raw/chrome-doh.json"
+            },
+            {
                 "tag": "ext-cn-domain",
                 "type": "remote",
                 "format": "binary",
-                "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/cn.srs"
+                "url": "https://raw.githubusercontent.com/xmdhs/cn-domain-list/rule-set/ext-cn-list.srs"
             }
         ]
     },
