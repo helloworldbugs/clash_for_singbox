@@ -86,6 +86,7 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	route := utils.AnyGet[map[string]any](config, "route")
 	ruleSet := utils.AnyGet[[]any](route, "rule_set")
 	rules := utils.AnyGet[[]any](route, "rules")
+	groupRules := make([]any, 0, len(groups))
 
 	for _, group := range groups {
 		tag := strings.TrimSpace(group.Tag)
@@ -133,11 +134,23 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 				"format": "binary",
 				"url":    srsURL,
 			})
-			rules = append(rules, map[string]any{
+			groupRules = append(groupRules, map[string]any{
 				"rule_set": ruleSetTag,
 				"outbound": tag,
 			})
 		}
+	}
+
+	if len(groupRules) > 0 {
+		insertIndex := len(rules)
+		for i, rule := range rules {
+			if isDirectFallbackRule(rule) {
+				insertIndex = i
+				break
+			}
+		}
+
+		rules = slices.Insert(rules, insertIndex, groupRules...)
 	}
 
 	utils.AnySet(&config, outbounds, "outbounds")
@@ -145,6 +158,23 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	utils.AnySet(&route, rules, "rules")
 	utils.AnySet(&config, route, "route")
 	return config
+}
+
+func isDirectFallbackRule(rule any) bool {
+	ruleMap, ok := rule.(map[string]any)
+	if !ok {
+		return false
+	}
+
+	if utils.AnyGet[string](ruleMap, "outbound") != "direct" {
+		return false
+	}
+
+	if ipIsPrivate, ok := ruleMap["ip_is_private"].(bool); ok && ipIsPrivate {
+		return true
+	}
+
+	return utils.AnyGet[string](ruleMap, "rule_set") == "geoip-cn"
 }
 
 func applyInboundSettings(config map[string]any, enableTun bool, proxyType string, proxyPort int) map[string]any {
