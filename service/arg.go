@@ -187,7 +187,7 @@ func applyInboundSettings(config map[string]any, enableTun bool, proxyType strin
 		proxyType = "mixed"
 	}
 	if proxyPort <= 0 {
-		proxyPort = 2333
+		proxyPort = 7890
 	}
 
 	filtered := make([]any, 0, len(inbounds))

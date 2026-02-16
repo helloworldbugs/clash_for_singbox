@@ -48,7 +48,7 @@ createApp({
         const proxyGroups = ref([])
         const enableTun = ref(true)
         const proxyType = ref("mixed")
-        const proxyPort = ref(2333)
+        const proxyPort = ref(7890)
 
 
         let oldConfig = "";
@@ -76,7 +76,7 @@ createApp({
             subUrl.searchParams.set("outFields", outFields.value ? "1" : "0")
             subUrl.searchParams.set("enableTun", enableTun.value ? "true" : "false")
             subUrl.searchParams.set("proxyType", proxyType.value)
-            subUrl.searchParams.set("proxyPort", String(proxyPort.value || 2333))
+            subUrl.searchParams.set("proxyPort", String(proxyPort.value || 7890))
             if (proxyGroups.value.length > 0) {
                 const groupString = JSON.stringify(proxyGroups.value)
                 const compressed = await compressString(groupString)
