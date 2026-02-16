@@ -75,19 +75,11 @@
             "auto_route": true
         },
         {
-            "type": "socks",
-            "tag": "socks-in",
-            "listen": "127.0.0.1",
-            "domain_strategy": "prefer_ipv4",
-            "listen_port": 2333,
-            "users": []
-        },
-        {
             "type": "mixed",
             "tag": "mixed-in",
             "domain_strategy": "prefer_ipv4",
             "listen": "127.0.0.1",
-            "listen_port": 2334,
+            "listen_port": 2333,
             "users": []
         }
     ],

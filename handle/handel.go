@@ -84,7 +84,7 @@ func (h *Handle) Sub(w http.ResponseWriter, r *http.Request) {
 		OutFields:      false,
 		EnableTun:      true,
 		ProxyType:      "mixed",
-		ProxyPort:      7890,
+		ProxyPort:      2333,
 		Ver:            v,
 	}
 
