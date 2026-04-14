@@ -21,9 +21,10 @@ type ConvertArg struct {
 }
 
 type ProxyGroup struct {
-	Tag     string `json:"tag"`
-	Type    string `json:"type"`
-	Include string `json:"include"`
-	Exclude string `json:"exclude"`
-	SrsURL  string `json:"srsUrl"`
+	Tag     string   `json:"tag"`
+	Type    string   `json:"type"`
+	Include string   `json:"include"`
+	Exclude string   `json:"exclude"`
+	SrsURL  string   `json:"srsUrl"`
+	ReuseTo []string `json:"reuseTo"`
 }
