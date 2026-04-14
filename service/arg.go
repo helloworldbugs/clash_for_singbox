@@ -87,18 +87,6 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	ruleSet := utils.AnyGet[[]any](route, "rule_set")
 	rules := utils.AnyGet[[]any](route, "rules")
 	groupRules := make([]any, 0, len(groups))
-	customGroupTags := make(map[string]struct{}, len(groups))
-	reuseGraph := make(map[string][]string, len(groups))
-	// 防止冲突误合并时 hasPath 调用被覆盖导致编译失败（unused 变量）。
-	_ = reuseGraph
-
-	for _, group := range groups {
-		tag := strings.TrimSpace(group.Tag)
-		if tag == "" {
-			continue
-		}
-		customGroupTags[tag] = struct{}{}
-	}
 
 	addedGroupTags := make(map[string]struct{}, len(groups))
 	groupReuseTargets := make(map[string][]string, len(groups))
