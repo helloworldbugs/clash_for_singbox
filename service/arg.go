@@ -115,12 +115,24 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 			newOutbound["tolerance"] = 50
 		}
 
-		outboundItems := make([]any, 0, 2)
+		outboundItems := make([]any, 0, 2+len(group.ReuseTo))
 		if include != "" {
 			outboundItems = append(outboundItems, "include: "+include)
 		}
 		if exclude != "" {
 			outboundItems = append(outboundItems, "exclude: "+exclude)
+		}
+		seenReuse := map[string]struct{}{}
+		for _, rawReuseTag := range group.ReuseTo {
+			reuseTag := strings.TrimSpace(rawReuseTag)
+			if reuseTag == "" || reuseTag == tag {
+				continue
+			}
+			if _, ok := seenReuse[reuseTag]; ok {
+				continue
+			}
+			seenReuse[reuseTag] = struct{}{}
+			outboundItems = appendUniqueOutbound(outboundItems, reuseTag)
 		}
 		newOutbound["outbounds"] = outboundItems
 		outbounds = append(outbounds, newOutbound)
@@ -158,6 +170,19 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	utils.AnySet(&route, rules, "rules")
 	utils.AnySet(&config, route, "route")
 	return config
+}
+
+func appendUniqueOutbound(outbounds []any, tag string) []any {
+	for _, outbound := range outbounds {
+		existedTag, ok := outbound.(string)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(existedTag) == tag {
+			return outbounds
+		}
+	}
+	return append(outbounds, tag)
 }
 
 func isDirectFallbackRule(rule any) bool {
