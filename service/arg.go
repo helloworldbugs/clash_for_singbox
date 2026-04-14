@@ -87,6 +87,16 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	ruleSet := utils.AnyGet[[]any](route, "rule_set")
 	rules := utils.AnyGet[[]any](route, "rules")
 	groupRules := make([]any, 0, len(groups))
+	customGroupTags := make(map[string]struct{}, len(groups))
+	reuseGraph := make(map[string][]string, len(groups))
+
+	for _, group := range groups {
+		tag := strings.TrimSpace(group.Tag)
+		if tag == "" {
+			continue
+		}
+		customGroupTags[tag] = struct{}{}
+	}
 
 	for _, group := range groups {
 		tag := strings.TrimSpace(group.Tag)
@@ -115,12 +125,30 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 			newOutbound["tolerance"] = 50
 		}
 
-		outboundItems := make([]any, 0, 2)
+		outboundItems := make([]any, 0, 2+len(group.ReuseTo))
 		if include != "" {
 			outboundItems = append(outboundItems, "include: "+include)
 		}
 		if exclude != "" {
 			outboundItems = append(outboundItems, "exclude: "+exclude)
+		}
+		seenReuse := map[string]struct{}{}
+		for _, rawReuseTag := range group.ReuseTo {
+			reuseTag := strings.TrimSpace(rawReuseTag)
+			if reuseTag == "" || reuseTag == tag {
+				continue
+			}
+			if _, ok := seenReuse[reuseTag]; ok {
+				continue
+			}
+			if _, isCustomTarget := customGroupTags[reuseTag]; isCustomTarget && hasPath(reuseGraph, reuseTag, tag) {
+				continue
+			}
+			seenReuse[reuseTag] = struct{}{}
+			outboundItems = appendUniqueOutbound(outboundItems, reuseTag)
+			if _, isCustomTarget := customGroupTags[reuseTag]; isCustomTarget {
+				reuseGraph[tag] = appendUniqueString(reuseGraph[tag], reuseTag)
+			}
 		}
 		newOutbound["outbounds"] = outboundItems
 		outbounds = append(outbounds, newOutbound)
@@ -158,6 +186,49 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	utils.AnySet(&route, rules, "rules")
 	utils.AnySet(&config, route, "route")
 	return config
+}
+
+func appendUniqueOutbound(outbounds []any, tag string) []any {
+	for _, outbound := range outbounds {
+		existedTag, ok := outbound.(string)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(existedTag) == tag {
+			return outbounds
+		}
+	}
+	return append(outbounds, tag)
+}
+
+func appendUniqueString(list []string, value string) []string {
+	for _, item := range list {
+		if item == value {
+			return list
+		}
+	}
+	return append(list, value)
+}
+
+func hasPath(graph map[string][]string, from, to string) bool {
+	if from == to {
+		return true
+	}
+	visited := map[string]struct{}{}
+	stack := []string{from}
+	for len(stack) > 0 {
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if current == to {
+			return true
+		}
+		if _, ok := visited[current]; ok {
+			continue
+		}
+		visited[current] = struct{}{}
+		stack = append(stack, graph[current]...)
+	}
+	return false
 }
 
 func isDirectFallbackRule(rule any) bool {
