@@ -106,7 +106,7 @@
                             <input placeholder="黑名单 exclude 正则，例如 (香港|台湾)" v-model="group.exclude" />
                         </div>
                         <input placeholder="srs URL（可选），例如 https://example.com/ai.srs" v-model.trim="group.srsUrl" />
-                        <label>当前分组可额外连接到以下分组（可多选）</label>
+                        <label>连接复用到以下分组（可多选）</label>
                         <div class="grid">
                             <label v-for="target in getReuseTargets(index)" :key="`${index}-${target}`">
                                 <input type="checkbox"

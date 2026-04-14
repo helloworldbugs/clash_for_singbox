@@ -101,6 +101,9 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 		customGroupTags[tag] = struct{}{}
 	}
 
+	addedGroupTags := make(map[string]struct{}, len(groups))
+	groupReuseTargets := make(map[string][]string, len(groups))
+
 	for _, group := range groups {
 		tag := strings.TrimSpace(group.Tag)
 		if tag == "" {
@@ -144,17 +147,13 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 			if _, ok := seenReuse[reuseTag]; ok {
 				continue
 			}
-			if _, isCustomTarget := customGroupTags[reuseTag]; isCustomTarget && hasPath(reuseGraph, reuseTag, tag) {
-				continue
-			}
 			seenReuse[reuseTag] = struct{}{}
 			outboundItems = appendUniqueOutbound(outboundItems, reuseTag)
-			if _, isCustomTarget := customGroupTags[reuseTag]; isCustomTarget {
-				reuseGraph[tag] = appendUniqueString(reuseGraph[tag], reuseTag)
-			}
 		}
 		newOutbound["outbounds"] = outboundItems
 		outbounds = append(outbounds, newOutbound)
+		addedGroupTags[tag] = struct{}{}
+		groupReuseTargets[tag] = group.ReuseTo
 
 		srsURL := strings.TrimSpace(group.SrsURL)
 		if srsURL != "" {
@@ -169,6 +168,49 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 				"rule_set": ruleSetTag,
 				"outbound": tag,
 			})
+		}
+	}
+
+	if len(groupReuseTargets) > 0 {
+		reuseableGroupMap := make(map[string]map[string]any)
+		for _, outbound := range outbounds {
+			outboundMap, ok := outbound.(map[string]any)
+			if !ok {
+				continue
+			}
+			t := strings.TrimSpace(utils.AnyGet[string](outboundMap, "type"))
+			tag := strings.TrimSpace(utils.AnyGet[string](outboundMap, "tag"))
+			if tag == "" {
+				continue
+			}
+			if t == "urltest" || t == "selector" {
+				reuseableGroupMap[tag] = outboundMap
+				continue
+			}
+			if _, ok := addedGroupTags[tag]; ok {
+				reuseableGroupMap[tag] = outboundMap
+			}
+		}
+
+		for sourceTag, targets := range groupReuseTargets {
+			seen := map[string]struct{}{}
+			for _, rawTarget := range targets {
+				targetTag := strings.TrimSpace(rawTarget)
+				if targetTag == "" || targetTag == sourceTag {
+					continue
+				}
+				if _, ok := seen[targetTag]; ok {
+					continue
+				}
+				seen[targetTag] = struct{}{}
+				targetOutbound, ok := reuseableGroupMap[targetTag]
+				if !ok {
+					continue
+				}
+				current := utils.AnyGet[[]any](targetOutbound, "outbounds")
+				current = appendUniqueOutbound(current, sourceTag)
+				targetOutbound["outbounds"] = current
+			}
 		}
 	}
 
@@ -191,105 +233,6 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	return config
 }
 
-func sanitizeCustomGroupDependencies(config map[string]any, groups []model.ProxyGroup) map[string]any {
-	if len(groups) == 0 {
-		return config
-	}
-	outbounds := utils.AnyGet[[]any](config, "outbounds")
-	if len(outbounds) == 0 {
-		return config
-	}
-
-	type groupMeta struct {
-		reuse map[string]struct{}
-	}
-	customGroupMeta := make(map[string]groupMeta, len(groups))
-	for _, group := range groups {
-		tag := strings.TrimSpace(group.Tag)
-		if tag == "" {
-			continue
-		}
-		reuse := make(map[string]struct{}, len(group.ReuseTo))
-		for _, rawTag := range group.ReuseTo {
-			reuseTag := strings.TrimSpace(rawTag)
-			if reuseTag == "" || reuseTag == tag {
-				continue
-			}
-			reuse[reuseTag] = struct{}{}
-		}
-		customGroupMeta[tag] = groupMeta{reuse: reuse}
-	}
-
-	outboundMap := make(map[string]map[string]any, len(outbounds))
-	for _, outbound := range outbounds {
-		m, ok := outbound.(map[string]any)
-		if !ok {
-			continue
-		}
-		tag := strings.TrimSpace(utils.AnyGet[string](m, "tag"))
-		if tag == "" {
-			continue
-		}
-		outboundMap[tag] = m
-	}
-
-	// 先移除未配置的自定义组引用，再做循环依赖剔除
-	for tag, meta := range customGroupMeta {
-		outbound, ok := outboundMap[tag]
-		if !ok {
-			continue
-		}
-		rawOutbounds := utils.AnyGet[[]any](outbound, "outbounds")
-		filtered := make([]any, 0, len(rawOutbounds))
-		for _, item := range rawOutbounds {
-			refTag, ok := item.(string)
-			if !ok {
-				filtered = append(filtered, item)
-				continue
-			}
-			refTag = strings.TrimSpace(refTag)
-			if _, isCustomRef := customGroupMeta[refTag]; isCustomRef {
-				if _, allow := meta.reuse[refTag]; !allow {
-					continue
-				}
-			}
-			filtered = append(filtered, item)
-		}
-		outbound["outbounds"] = filtered
-	}
-
-	acceptedGraph := make(map[string][]string, len(customGroupMeta))
-	for tag := range customGroupMeta {
-		outbound, ok := outboundMap[tag]
-		if !ok {
-			continue
-		}
-		rawOutbounds := utils.AnyGet[[]any](outbound, "outbounds")
-		filtered := make([]any, 0, len(rawOutbounds))
-		for _, item := range rawOutbounds {
-			refTag, ok := item.(string)
-			if !ok {
-				filtered = append(filtered, item)
-				continue
-			}
-			refTag = strings.TrimSpace(refTag)
-			if _, isCustomRef := customGroupMeta[refTag]; !isCustomRef {
-				filtered = append(filtered, item)
-				continue
-			}
-			if hasPath(acceptedGraph, refTag, tag) {
-				continue
-			}
-			acceptedGraph[tag] = appendUniqueString(acceptedGraph[tag], refTag)
-			filtered = append(filtered, item)
-		}
-		outbound["outbounds"] = filtered
-	}
-
-	utils.AnySet(&config, outbounds, "outbounds")
-	return config
-}
-
 func appendUniqueOutbound(outbounds []any, tag string) []any {
 	for _, outbound := range outbounds {
 		existedTag, ok := outbound.(string)
@@ -301,36 +244,6 @@ func appendUniqueOutbound(outbounds []any, tag string) []any {
 		}
 	}
 	return append(outbounds, tag)
-}
-
-func appendUniqueString(list []string, value string) []string {
-	for _, item := range list {
-		if item == value {
-			return list
-		}
-	}
-	return append(list, value)
-}
-
-func hasPath(graph map[string][]string, from, to string) bool {
-	if from == to {
-		return true
-	}
-	visited := map[string]struct{}{}
-	stack := []string{from}
-	for len(stack) > 0 {
-		current := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		if current == to {
-			return true
-		}
-		if _, ok := visited[current]; ok {
-			continue
-		}
-		visited[current] = struct{}{}
-		stack = append(stack, graph[current]...)
-	}
-	return false
 }
 
 func isDirectFallbackRule(rule any) bool {

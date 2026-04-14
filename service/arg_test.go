@@ -88,48 +88,6 @@ func TestApplyProxyGroupsReuseToCyclePrevented(t *testing.T) {
 	}
 }
 
-func TestSanitizeCustomGroupDependencies(t *testing.T) {
-	config := map[string]any{
-		"outbounds": []any{
-			map[string]any{
-				"tag":       "gemini-test",
-				"type":      "urltest",
-				"outbounds": []any{"node-a", "gemin"},
-			},
-			map[string]any{
-				"tag":       "gemin",
-				"type":      "selector",
-				"outbounds": []any{"node-b", "gemini-test"},
-			},
-		},
-	}
-	groups := []model.ProxyGroup{
-		{
-			Tag:     "gemini-test",
-			Type:    "urltest",
-			Include: ".*",
-		},
-		{
-			Tag:     "gemin",
-			Type:    "selector",
-			Include: ".*",
-			ReuseTo: []string{"gemini-test"},
-		},
-	}
-
-	got := sanitizeCustomGroupDependencies(config, groups)
-	outbounds := utils.AnyGet[[]any](got, "outbounds")
-	geminiTest := utils.AnyGet[[]any](outbounds[0], "outbounds")
-	gemin := utils.AnyGet[[]any](outbounds[1], "outbounds")
-
-	if containsString(geminiTest, "gemin") {
-		t.Fatalf("expected gemini-test not to contain gemin, got %#v", geminiTest)
-	}
-	if !containsString(gemin, "gemini-test") {
-		t.Fatalf("expected gemin to keep gemini-test, got %#v", gemin)
-	}
-}
-
 func containsString(items []any, target string) bool {
 	for _, item := range items {
 		v, ok := item.(string)
