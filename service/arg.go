@@ -54,6 +54,7 @@ func (c *Convert) MakeConfig(cxt context.Context, arg model.ConvertArg, configBy
 	if err != nil {
 		return nil, fmt.Errorf("MakeConfig: %w", err)
 	}
+	m = sanitizeCustomGroupDependencies(m, arg.ProxyGroups)
 
 	// 根据 User-Agent 决定是否格式化 JSON
 	var result []byte
@@ -87,6 +88,18 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	ruleSet := utils.AnyGet[[]any](route, "rule_set")
 	rules := utils.AnyGet[[]any](route, "rules")
 	groupRules := make([]any, 0, len(groups))
+	customGroupTags := make(map[string]struct{}, len(groups))
+	reuseGraph := make(map[string][]string, len(groups))
+	// 防止冲突误合并时 hasPath 调用被覆盖导致编译失败（unused 变量）。
+	_ = reuseGraph
+
+	for _, group := range groups {
+		tag := strings.TrimSpace(group.Tag)
+		if tag == "" {
+			continue
+		}
+		customGroupTags[tag] = struct{}{}
+	}
 
 	for _, group := range groups {
 		tag := strings.TrimSpace(group.Tag)
@@ -115,12 +128,30 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 			newOutbound["tolerance"] = 50
 		}
 
-		outboundItems := make([]any, 0, 2)
+		outboundItems := make([]any, 0, 2+len(group.ReuseTo))
 		if include != "" {
 			outboundItems = append(outboundItems, "include: "+include)
 		}
 		if exclude != "" {
 			outboundItems = append(outboundItems, "exclude: "+exclude)
+		}
+		seenReuse := map[string]struct{}{}
+		for _, rawReuseTag := range group.ReuseTo {
+			reuseTag := strings.TrimSpace(rawReuseTag)
+			if reuseTag == "" || reuseTag == tag {
+				continue
+			}
+			if _, ok := seenReuse[reuseTag]; ok {
+				continue
+			}
+			if _, isCustomTarget := customGroupTags[reuseTag]; isCustomTarget && hasPath(reuseGraph, reuseTag, tag) {
+				continue
+			}
+			seenReuse[reuseTag] = struct{}{}
+			outboundItems = appendUniqueOutbound(outboundItems, reuseTag)
+			if _, isCustomTarget := customGroupTags[reuseTag]; isCustomTarget {
+				reuseGraph[tag] = appendUniqueString(reuseGraph[tag], reuseTag)
+			}
 		}
 		newOutbound["outbounds"] = outboundItems
 		outbounds = append(outbounds, newOutbound)
@@ -158,6 +189,148 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	utils.AnySet(&route, rules, "rules")
 	utils.AnySet(&config, route, "route")
 	return config
+}
+
+func sanitizeCustomGroupDependencies(config map[string]any, groups []model.ProxyGroup) map[string]any {
+	if len(groups) == 0 {
+		return config
+	}
+	outbounds := utils.AnyGet[[]any](config, "outbounds")
+	if len(outbounds) == 0 {
+		return config
+	}
+
+	type groupMeta struct {
+		reuse map[string]struct{}
+	}
+	customGroupMeta := make(map[string]groupMeta, len(groups))
+	for _, group := range groups {
+		tag := strings.TrimSpace(group.Tag)
+		if tag == "" {
+			continue
+		}
+		reuse := make(map[string]struct{}, len(group.ReuseTo))
+		for _, rawTag := range group.ReuseTo {
+			reuseTag := strings.TrimSpace(rawTag)
+			if reuseTag == "" || reuseTag == tag {
+				continue
+			}
+			reuse[reuseTag] = struct{}{}
+		}
+		customGroupMeta[tag] = groupMeta{reuse: reuse}
+	}
+
+	outboundMap := make(map[string]map[string]any, len(outbounds))
+	for _, outbound := range outbounds {
+		m, ok := outbound.(map[string]any)
+		if !ok {
+			continue
+		}
+		tag := strings.TrimSpace(utils.AnyGet[string](m, "tag"))
+		if tag == "" {
+			continue
+		}
+		outboundMap[tag] = m
+	}
+
+	// 先移除未配置的自定义组引用，再做循环依赖剔除
+	for tag, meta := range customGroupMeta {
+		outbound, ok := outboundMap[tag]
+		if !ok {
+			continue
+		}
+		rawOutbounds := utils.AnyGet[[]any](outbound, "outbounds")
+		filtered := make([]any, 0, len(rawOutbounds))
+		for _, item := range rawOutbounds {
+			refTag, ok := item.(string)
+			if !ok {
+				filtered = append(filtered, item)
+				continue
+			}
+			refTag = strings.TrimSpace(refTag)
+			if _, isCustomRef := customGroupMeta[refTag]; isCustomRef {
+				if _, allow := meta.reuse[refTag]; !allow {
+					continue
+				}
+			}
+			filtered = append(filtered, item)
+		}
+		outbound["outbounds"] = filtered
+	}
+
+	acceptedGraph := make(map[string][]string, len(customGroupMeta))
+	for tag := range customGroupMeta {
+		outbound, ok := outboundMap[tag]
+		if !ok {
+			continue
+		}
+		rawOutbounds := utils.AnyGet[[]any](outbound, "outbounds")
+		filtered := make([]any, 0, len(rawOutbounds))
+		for _, item := range rawOutbounds {
+			refTag, ok := item.(string)
+			if !ok {
+				filtered = append(filtered, item)
+				continue
+			}
+			refTag = strings.TrimSpace(refTag)
+			if _, isCustomRef := customGroupMeta[refTag]; !isCustomRef {
+				filtered = append(filtered, item)
+				continue
+			}
+			if hasPath(acceptedGraph, refTag, tag) {
+				continue
+			}
+			acceptedGraph[tag] = appendUniqueString(acceptedGraph[tag], refTag)
+			filtered = append(filtered, item)
+		}
+		outbound["outbounds"] = filtered
+	}
+
+	utils.AnySet(&config, outbounds, "outbounds")
+	return config
+}
+
+func appendUniqueOutbound(outbounds []any, tag string) []any {
+	for _, outbound := range outbounds {
+		existedTag, ok := outbound.(string)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(existedTag) == tag {
+			return outbounds
+		}
+	}
+	return append(outbounds, tag)
+}
+
+func appendUniqueString(list []string, value string) []string {
+	for _, item := range list {
+		if item == value {
+			return list
+		}
+	}
+	return append(list, value)
+}
+
+func hasPath(graph map[string][]string, from, to string) bool {
+	if from == to {
+		return true
+	}
+	visited := map[string]struct{}{}
+	stack := []string{from}
+	for len(stack) > 0 {
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if current == to {
+			return true
+		}
+		if _, ok := visited[current]; ok {
+			continue
+		}
+		visited[current] = struct{}{}
+		stack = append(stack, graph[current]...)
+	}
+	return false
 }
 
 func isDirectFallbackRule(rule any) bool {
