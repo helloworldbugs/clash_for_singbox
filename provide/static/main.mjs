@@ -208,12 +208,33 @@ createApp({
                 type: "urltest",
                 include: "",
                 exclude: "",
-                srsUrl: ""
+                srsUrl: "",
+                reuseTo: []
             })
         }
 
         function removeProxyGroup(index) {
             proxyGroups.value.splice(index, 1)
+        }
+
+        function getReuseTargets(index) {
+            const defaults = ["urltest", "select"]
+            const custom = proxyGroups.value
+                .map((group) => group.tag?.trim())
+                .filter((tag, i) => tag && i !== index)
+            return [...new Set([...defaults, ...custom])]
+        }
+
+        function toggleReuseTarget(group, target) {
+            if (!Array.isArray(group.reuseTo)) {
+                group.reuseTo = []
+            }
+            const index = group.reuseTo.indexOf(target)
+            if (index >= 0) {
+                group.reuseTo.splice(index, 1)
+                return
+            }
+            group.reuseTo.push(target)
         }
 
         function onChange() {
@@ -262,7 +283,9 @@ createApp({
             proxyType,
             proxyPort,
             addProxyGroup,
-            removeProxyGroup
+            removeProxyGroup,
+            getReuseTargets,
+            toggleReuseTarget
         }
 
     },

@@ -88,6 +88,9 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	rules := utils.AnyGet[[]any](route, "rules")
 	groupRules := make([]any, 0, len(groups))
 
+	addedGroupTags := make(map[string]struct{}, len(groups))
+	groupReuseTargets := make(map[string][]string, len(groups))
+
 	for _, group := range groups {
 		tag := strings.TrimSpace(group.Tag)
 		if tag == "" {
@@ -124,6 +127,8 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 		}
 		newOutbound["outbounds"] = outboundItems
 		outbounds = append(outbounds, newOutbound)
+		addedGroupTags[tag] = struct{}{}
+		groupReuseTargets[tag] = group.ReuseTo
 
 		srsURL := strings.TrimSpace(group.SrsURL)
 		if srsURL != "" {
@@ -138,6 +143,49 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 				"rule_set": ruleSetTag,
 				"outbound": tag,
 			})
+		}
+	}
+
+	if len(groupReuseTargets) > 0 {
+		reuseableGroupMap := make(map[string]map[string]any)
+		for _, outbound := range outbounds {
+			outboundMap, ok := outbound.(map[string]any)
+			if !ok {
+				continue
+			}
+			t := strings.TrimSpace(utils.AnyGet[string](outboundMap, "type"))
+			tag := strings.TrimSpace(utils.AnyGet[string](outboundMap, "tag"))
+			if tag == "" {
+				continue
+			}
+			if t == "urltest" || t == "selector" {
+				reuseableGroupMap[tag] = outboundMap
+				continue
+			}
+			if _, ok := addedGroupTags[tag]; ok {
+				reuseableGroupMap[tag] = outboundMap
+			}
+		}
+
+		for sourceTag, targets := range groupReuseTargets {
+			seen := map[string]struct{}{}
+			for _, rawTarget := range targets {
+				targetTag := strings.TrimSpace(rawTarget)
+				if targetTag == "" || targetTag == sourceTag {
+					continue
+				}
+				if _, ok := seen[targetTag]; ok {
+					continue
+				}
+				seen[targetTag] = struct{}{}
+				targetOutbound, ok := reuseableGroupMap[targetTag]
+				if !ok {
+					continue
+				}
+				current := utils.AnyGet[[]any](targetOutbound, "outbounds")
+				current = appendUniqueOutbound(current, sourceTag)
+				targetOutbound["outbounds"] = current
+			}
 		}
 	}
 
@@ -158,6 +206,19 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 	utils.AnySet(&route, rules, "rules")
 	utils.AnySet(&config, route, "route")
 	return config
+}
+
+func appendUniqueOutbound(outbounds []any, tag string) []any {
+	for _, outbound := range outbounds {
+		existedTag, ok := outbound.(string)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(existedTag) == tag {
+			return outbounds
+		}
+	}
+	return append(outbounds, tag)
 }
 
 func isDirectFallbackRule(rule any) bool {
