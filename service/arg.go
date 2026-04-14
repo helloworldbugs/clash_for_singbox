@@ -118,24 +118,12 @@ func applyProxyGroups(config map[string]any, groups []model.ProxyGroup) map[stri
 			newOutbound["tolerance"] = 50
 		}
 
-		outboundItems := make([]any, 0, 2+len(group.ReuseTo))
+		outboundItems := make([]any, 0, 2)
 		if include != "" {
 			outboundItems = append(outboundItems, "include: "+include)
 		}
 		if exclude != "" {
 			outboundItems = append(outboundItems, "exclude: "+exclude)
-		}
-		seenReuse := map[string]struct{}{}
-		for _, rawReuseTag := range group.ReuseTo {
-			reuseTag := strings.TrimSpace(rawReuseTag)
-			if reuseTag == "" || reuseTag == tag {
-				continue
-			}
-			if _, ok := seenReuse[reuseTag]; ok {
-				continue
-			}
-			seenReuse[reuseTag] = struct{}{}
-			outboundItems = appendUniqueOutbound(outboundItems, reuseTag)
 		}
 		newOutbound["outbounds"] = outboundItems
 		outbounds = append(outbounds, newOutbound)
